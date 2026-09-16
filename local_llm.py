@@ -124,13 +124,14 @@ class LocalLLM:
         if self.llm is None:
             raise RuntimeError("No model loaded")
 
-        # Add user message to conversation history
         self.messages.append({
             "role": "user",
             "content": user_input
         })
 
-        # Generate response
+        # Start timer
+        generation_start = time.perf_counter()
+
         response = self.llm.create_chat_completion(
             messages=self.messages,
             max_tokens=500,
@@ -138,12 +139,37 @@ class LocalLLM:
             stream=False,
         )
 
+        # Stop timer
+        generation_end = time.perf_counter()
+
         assistant_message = response["choices"][0]["message"]["content"]
 
-        # Add assistant response to conversation history
+        # Count output tokens
+        output_tokens = len(
+            self.llm.tokenize(
+                assistant_message.encode("utf-8"),
+                add_bos=False,
+            )
+        )
+
+        generation_time = generation_end - generation_start
+
+        tokens_per_second = (
+            output_tokens / generation_time
+            if generation_time > 0
+            else 0
+        )
+
         self.messages.append({
             "role": "assistant",
             "content": assistant_message
         })
+
+        print(assistant_message)
+
+        print(
+            f"\n{output_tokens} tokens | "
+            f"{tokens_per_second:.2f} tok/s"
+        )
 
         return assistant_message
