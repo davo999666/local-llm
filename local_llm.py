@@ -110,6 +110,7 @@ class LocalLLM:
             ]
 
     def unload_model(self):
+
         if self.llm is not None:
             del self.llm
             self.llm = None
@@ -118,3 +119,31 @@ class LocalLLM:
 
         self.model_name = None
         self.messages = []
+
+    def chat(self, user_input: str):
+        if self.llm is None:
+            raise RuntimeError("No model loaded")
+
+        # Add user message to conversation history
+        self.messages.append({
+            "role": "user",
+            "content": user_input
+        })
+
+        # Generate response
+        response = self.llm.create_chat_completion(
+            messages=self.messages,
+            max_tokens=500,
+            temperature=0.5,
+            stream=False,
+        )
+
+        assistant_message = response["choices"][0]["message"]["content"]
+
+        # Add assistant response to conversation history
+        self.messages.append({
+            "role": "assistant",
+            "content": assistant_message
+        })
+
+        return assistant_message

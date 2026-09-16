@@ -65,14 +65,6 @@ Change `cu132` to your compatible CUDA wheel.
 python -c "from llama_cpp import llama_cpp; print(llama_cpp.llama_print_system_info().decode())"
 ```
 
-You should see:
-
-```text
-ggml_cuda_init: found 1 CUDA devices
-Device 0: NVIDIA ...
-CUDA : ...
-```
-
 ## 5. Add Models
 
 Put `.gguf` models inside:
