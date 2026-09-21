@@ -1,4 +1,7 @@
-from llm_app import LLMApp
+
+
+
+from interface import LLMApp
 
 
 app = LLMApp(model_folder="./llm_model")

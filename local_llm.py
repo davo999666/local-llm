@@ -35,22 +35,17 @@ class LocalLLM:
         if self.llm is None:
             raise RuntimeError("No model loaded")
 
-        self.messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        self.messages.append({"role": "user", "content": user_input})
 
         assistant_message = ""
         generation_start = None
+        raw_chunks = []
 
-        stream = self.llm.create_chat_completion(
-            messages=self.messages,
-            max_tokens=500,
-            temperature=0.5,
-            stream=True,
-        )
+        stream = self.llm.create_chat_completion(messages=self.messages, max_tokens=-1, temperature=0.5, stream=True)
 
         for chunk in stream:
+            raw_chunks.append(chunk)
+
             delta = chunk["choices"][0]["delta"]
             content = delta.get("content")
 
@@ -62,43 +57,20 @@ class LocalLLM:
 
             assistant_message += content
 
-            # Send each generated piece back to GUI
-            yield {
-                "type": "token",
-                "content": content
-            }
+            yield {"type": "token", "content": content}
 
         generation_end = time.perf_counter()
 
-        output_tokens = len(
-            self.llm.tokenize(
-                assistant_message.encode("utf-8"),
-                add_bos=False,
-            )
-        )
+        output_tokens = len(self.llm.tokenize(assistant_message.encode("utf-8"), add_bos=False))
 
-        generation_time = (
-            generation_end - generation_start
-            if generation_start is not None
-            else 0
-        )
+        generation_time = generation_end - generation_start if generation_start is not None else 0
+        tokens_per_second = output_tokens / generation_time if generation_time > 0 else 0
 
-        tokens_per_second = (
-            output_tokens / generation_time
-            if generation_time > 0
-            else 0
-        )
+        self.messages.append({"role": "assistant", "content": assistant_message})
 
-        self.messages.append({
-            "role": "assistant",
-            "content": assistant_message
-        })
+        yield {"type": "stats", "tokens": output_tokens, "tokens_per_second": tokens_per_second}
 
-        yield {
-            "type": "stats",
-            "tokens": output_tokens,
-            "tokens_per_second": tokens_per_second,
-        }
+        yield {"type": "raw_output", "data": raw_chunks}
 
     def clear_history(self):
         if self.llm:
@@ -124,52 +96,25 @@ class LocalLLM:
         if self.llm is None:
             raise RuntimeError("No model loaded")
 
-        self.messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        self.messages.append({"role": "user", "content": user_input})
 
-        # Start timer
         generation_start = time.perf_counter()
 
-        response = self.llm.create_chat_completion(
-            messages=self.messages,
-            max_tokens=500,
-            temperature=0.5,
-            stream=False,
-        )
+        response = self.llm.create_chat_completion(messages=self.messages, max_tokens=-1, temperature=0.5, stream=False)
 
-        # Stop timer
         generation_end = time.perf_counter()
 
         assistant_message = response["choices"][0]["message"]["content"]
 
-        # Count output tokens
-        output_tokens = len(
-            self.llm.tokenize(
-                assistant_message.encode("utf-8"),
-                add_bos=False,
-            )
-        )
-
+        output_tokens = len(self.llm.tokenize(assistant_message.encode("utf-8"), add_bos=False))
         generation_time = generation_end - generation_start
+        tokens_per_second = output_tokens / generation_time if generation_time > 0 else 0
 
-        tokens_per_second = (
-            output_tokens / generation_time
-            if generation_time > 0
-            else 0
-        )
-
-        self.messages.append({
-            "role": "assistant",
-            "content": assistant_message
-        })
+        self.messages.append({"role": "assistant", "content": assistant_message})
 
         print(assistant_message)
+        print(f"{output_tokens} tokens | {tokens_per_second:.2f} tok/s")
 
-        print(
-            f"\n{output_tokens} tokens | "
-            f"{tokens_per_second:.2f} tok/s"
-        )
+        return {"content": assistant_message, "response": response, "tokens": output_tokens, "tokens_per_second": tokens_per_second}
 
-        return assistant_message
+
